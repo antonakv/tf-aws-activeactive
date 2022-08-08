@@ -355,3 +355,65 @@ resource "aws_vpc_endpoint_route_table_association" "aws13-private-s3-endpoint" 
   vpc_endpoint_id = aws_vpc_endpoint.s3.id
 }
 
+resource "aws_s3_bucket" "tfe-data" {
+  bucket        = "${local.friendly_name_prefix}-tfe-data"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "tfe-data" {
+  bucket = aws_s3_bucket.tfe-data.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_acl" "tfe-data" {
+  bucket = aws_s3_bucket.tfe-data.id
+  acl    = "private"
+}
+
+resource "aws_s3_bucket_public_access_block" "tfe-data" {
+  bucket = aws_s3_bucket.tfe-data.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  restrict_public_buckets = true
+  ignore_public_acls      = true
+}
+
+data "aws_iam_policy_document" "tfe-data" {
+  statement {
+    actions = [
+      "s3:GetBucketLocation",
+      "s3:ListBucket",
+    ]
+    effect = "Allow"
+    principals {
+      identifiers = [aws_iam_role.instance_role.arn]
+      type        = "AWS"
+    }
+    resources = [aws_s3_bucket.tfe-data.arn]
+    sid       = "AllowS3ListBucketData"
+  }
+
+  statement {
+    actions = [
+      "s3:DeleteObject",
+      "s3:GetObject",
+      "s3:PutObject",
+    ]
+    effect = "Allow"
+    principals {
+      identifiers = [aws_iam_role.instance_role.arn]
+      type        = "AWS"
+    }
+    resources = ["${aws_s3_bucket.tfe-data.arn}/*"]
+    sid       = "AllowS3ManagementData"
+  }
+}
+
+resource "aws_s3_bucket_policy" "tfe_data" {
+  bucket = aws_s3_bucket_public_access_block.tfe-data.bucket
+  policy = data.aws_iam_policy_document.tfe-data.json
+}
+
