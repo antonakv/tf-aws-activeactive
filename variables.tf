@@ -2,12 +2,10 @@ variable "region" {
   type        = string
   description = "AWS region"
 }
-
 variable "tfe_license_path" {
   type        = string
   description = "Path for the TFE license"
 }
-
 variable "cidr_vpc" {
   type        = string
   description = "Amazon EC2 VPC net"
@@ -33,4 +31,10 @@ variable "instance_type_redis" {
 }
 variable "instance_type_jump" {
   description = "Ssh jump instance type"
+}
+variable "jump_ami" {
+  description = "Amazon EC2 ami created with Packer"
+}
+variable "key_name" {
+  description = "Name of Amazon EC2 keypair for the specific region"
 }
