@@ -12,19 +12,25 @@ variable "cidr_vpc" {
   type        = string
   description = "Amazon EC2 VPC net"
 }
-variable "cidr_subnet1" {
+variable "cidr_subnet_private_1" {
   type        = string
-  description = "Amazon EC2 subnet 1"
+  description = "Amazon EC2 subnet 1 private"
 }
-variable "cidr_subnet2" {
+variable "cidr_subnet_private_2" {
   type        = string
-  description = "Amazon EC2 subnet 2"
+  description = "Amazon EC2 subnet 2 private"
 }
-variable "cidr_subnet3" {
+variable "cidr_subnet_public_1" {
   type        = string
-  description = "Amazon EC2 subnet 3"
+  description = "Amazon EC2 subnet 1 public"
 }
-variable "cidr_subnet4" {
+variable "cidr_subnet_public_2" {
   type        = string
-  description = "Amazon EC2 subnet 4"
+  description = "Amazon EC2 subnet 2 public"
+}
+variable "instance_type_redis" {
+  description = "Amazon Elasticashe Redis instance type"
+}
+variable "instance_type_jump" {
+  description = "Ssh jump instance type"
 }
