@@ -476,12 +476,10 @@ resource "aws_elasticache_replication_group" "redis" {
   at_rest_encryption_enabled = false
   auth_token                 = random_id.redis-password.hex
   automatic_failover_enabled = false
-  #availability_zones         = ["eu-central-1b", "eu-central-1c"]
   engine                     = "redis"
   engine_version             = "5.0.6"
   parameter_group_name       = "default.redis5.0"
   port                       = 6379
-  #security_group_ids         = [aws_security_group.redis.id]
   subnet_group_name          = aws_elasticache_subnet_group.tfe.name
   transit_encryption_enabled = true
   multi_az_enabled           = false
