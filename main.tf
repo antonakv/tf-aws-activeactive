@@ -97,25 +97,25 @@ resource "aws_vpc" "vpc" {
 
 resource "aws_subnet" "subnet_private1" {
   vpc_id            = aws_vpc.vpc.id
-  cidr_block        = var.cidr_subnet1
+  cidr_block        = var.cidr_subnet_private_1
   availability_zone = "eu-central-1b"
 }
 
 resource "aws_subnet" "subnet_private2" {
   vpc_id            = aws_vpc.vpc.id
-  cidr_block        = var.cidr_subnet3
+  cidr_block        = var.cidr_subnet_private_2
   availability_zone = "eu-central-1c"
 }
 
 resource "aws_subnet" "subnet_public1" {
   vpc_id            = aws_vpc.vpc.id
-  cidr_block        = var.cidr_subnet2
+  cidr_block        = var.cidr_subnet_public_1
   availability_zone = "eu-central-1b"
 }
 
 resource "aws_subnet" "subnet_public2" {
   vpc_id            = aws_vpc.vpc.id
-  cidr_block        = var.cidr_subnet4
+  cidr_block        = var.cidr_subnet_public_2
   availability_zone = "eu-central-1c"
 }
 
@@ -150,7 +150,7 @@ resource "aws_nat_gateway" "nat" {
   }
 }
 
-resource "aws_route_table" "aws13-private" {
+resource "aws_route_table" "private" {
   vpc_id = aws_vpc.vpc.id
 
 
@@ -160,11 +160,11 @@ resource "aws_route_table" "aws13-private" {
   }
 
   tags = {
-    Name = "${local.friendly_name_prefix}-aws13-private"
+    Name = "${local.friendly_name_prefix}-private"
   }
 }
 
-resource "aws_route_table" "aws13-public" {
+resource "aws_route_table" "public" {
   vpc_id = aws_vpc.vpc.id
 
 
@@ -174,25 +174,25 @@ resource "aws_route_table" "aws13-public" {
   }
 
   tags = {
-    Name = "${local.friendly_name_prefix}-aws13-public"
+    Name = "${local.friendly_name_prefix}-public"
   }
 }
 
-resource "aws_route_table_association" "aws13-private" {
+resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.subnet_private1.id
-  route_table_id = aws_route_table.aws13-private.id
+  route_table_id = aws_route_table.private.id
 }
 
-resource "aws_route_table_association" "aws13-public" {
+resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.subnet_public1.id
-  route_table_id = aws_route_table.aws13-public.id
+  route_table_id = aws_route_table.public.id
 }
 
-resource "aws_security_group" "aws13-lb-sg" {
+resource "aws_security_group" "lb-sg" {
   vpc_id = aws_vpc.vpc.id
-  name   = "aakulov-aws13-lb-sg"
+  name   = "${local.friendly_name_prefix}-lb-sg"
   tags = {
-    Name = "${local.friendly_name_prefix}-aws13-lb-sg"
+    Name = "${local.friendly_name_prefix}-lb-sg"
   }
 
   ingress {
@@ -210,11 +210,11 @@ resource "aws_security_group" "aws13-lb-sg" {
   }
 }
 
-resource "aws_security_group" "aws13-internal-sg" {
+resource "aws_security_group" "internal-sg" {
   vpc_id = aws_vpc.vpc.id
-  name   = "aakulov-aws13-internal-sg"
+  name   = "${local.friendly_name_prefix}-internal-sg"
   tags = {
-    Name = "${local.friendly_name_prefix}-aws13-internal-sg"
+    Name = "${local.friendly_name_prefix}-internal-sg"
   }
 
   ingress {
@@ -242,7 +242,7 @@ resource "aws_security_group" "aws13-internal-sg" {
     from_port       = 443
     to_port         = 443
     protocol        = "tcp"
-    security_groups = [aws_security_group.aws13-lb-sg.id]
+    security_groups = [aws_security_group.lb-sg.id]
   }
 
   ingress {
@@ -256,7 +256,7 @@ resource "aws_security_group" "aws13-internal-sg" {
     from_port       = 8800
     to_port         = 8800
     protocol        = "tcp"
-    security_groups = [aws_security_group.aws13-lb-sg.id]
+    security_groups = [aws_security_group.lb-sg.id]
   }
 
   ingress {
@@ -291,7 +291,7 @@ resource "aws_security_group" "aws13-internal-sg" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.aws13-public-sg.id]
+    security_groups = [aws_security_group.public-sg.id]
   }
 
   egress {
@@ -302,9 +302,9 @@ resource "aws_security_group" "aws13-internal-sg" {
   }
 }
 
-resource "aws_security_group" "aws13-public-sg" {
+resource "aws_security_group" "public-sg" {
   vpc_id = aws_vpc.vpc.id
-  name   = "aakulov-aws13-public-sg"
+  name   = "${local.friendly_name_prefix}-public-sg"
   tags = {
     Name = "${local.friendly_name_prefix}-public-sg"
   }
@@ -350,8 +350,8 @@ resource "aws_vpc_endpoint" "s3" {
   service_name = "com.amazonaws.eu-central-1.s3"
 }
 
-resource "aws_vpc_endpoint_route_table_association" "aws13-private-s3-endpoint" {
-  route_table_id  = aws_route_table.aws13-public.id
+resource "aws_vpc_endpoint_route_table_association" "private-s3-endpoint" {
+  route_table_id  = aws_route_table.public.id
   vpc_endpoint_id = aws_vpc_endpoint.s3.id
 }
 
@@ -412,8 +412,80 @@ data "aws_iam_policy_document" "tfe-data" {
   }
 }
 
-resource "aws_s3_bucket_policy" "tfe_data" {
+resource "aws_s3_bucket_policy" "tfe-data" {
   bucket = aws_s3_bucket_public_access_block.tfe-data.bucket
   policy = data.aws_iam_policy_document.tfe-data.json
+}
+
+resource "random_id" "redis-password" {
+  byte_length = 16
+}
+
+resource "aws_security_group" "redis" {
+  name   = "${local.friendly_name_prefix}-tfe-redis"
+  vpc_id = aws_vpc.vpc.id
+}
+
+resource "aws_security_group_rule" "redis-tfe-ingress" {
+  security_group_id        = aws_security_group.redis.id
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6380
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.internal-sg.id
+}
+
+resource "aws_security_group_rule" "redis-tfe-egress" {
+  security_group_id        = aws_security_group.redis.id
+  type                     = "egress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.internal-sg.id
+}
+
+resource "aws_security_group_rule" "redis_ingress" {
+  security_group_id = aws_security_group.redis.id
+  type              = "ingress"
+  from_port         = 6379
+  to_port           = 6380
+  protocol          = "tcp"
+  cidr_blocks       = [var.cidr_subnet_private_1, var.cidr_subnet_private_2]
+}
+
+resource "aws_security_group_rule" "redis_egress" {
+  security_group_id = aws_security_group.redis.id
+  type              = "egress"
+  from_port         = 6379
+  to_port           = 6380
+  protocol          = "tcp"
+  cidr_blocks       = [var.cidr_subnet_private_1, var.cidr_subnet_private_2]
+}
+
+resource "aws_elasticache_subnet_group" "tfe" {
+  name       = "${local.friendly_name_prefix}-tfe-redis"
+  subnet_ids = [aws_subnet.subnet_private1.id, aws_subnet.subnet_private2.id]
+}
+
+resource "aws_elasticache_replication_group" "redis" {
+  node_type                  = var.instance_type_redis
+  num_cache_clusters         = 1
+  replication_group_id       = "${local.friendly_name_prefix}-tfe"
+  description                = "Redis replication group for TFE"
+  apply_immediately          = true
+  at_rest_encryption_enabled = false
+  auth_token                 = random_id.redis-password.hex
+  automatic_failover_enabled = false
+  #availability_zones         = ["eu-central-1b", "eu-central-1c"]
+  engine                     = "redis"
+  engine_version             = "5.0.6"
+  parameter_group_name       = "default.redis5.0"
+  port                       = 6379
+  #security_group_ids         = [aws_security_group.redis.id]
+  subnet_group_name          = aws_elasticache_subnet_group.tfe.name
+  transit_encryption_enabled = true
+  multi_az_enabled           = false
+  auto_minor_version_upgrade = true
+  snapshot_retention_limit   = 0
 }
 
