@@ -38,3 +38,6 @@ variable "jump_ami" {
 variable "key_name" {
   description = "Name of Amazon EC2 keypair for the specific region"
 }
+variable "db_instance_type" {
+  description = "Amazon EC2 RDS instance type"
+}

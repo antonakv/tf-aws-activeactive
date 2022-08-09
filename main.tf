@@ -444,7 +444,7 @@ resource "aws_security_group_rule" "redis-tfe-egress" {
   source_security_group_id = aws_security_group.internal-sg.id
 }
 
-resource "aws_security_group_rule" "redis_ingress" {
+resource "aws_security_group_rule" "redis-ingress" {
   security_group_id = aws_security_group.redis.id
   type              = "ingress"
   from_port         = 6379
@@ -453,7 +453,7 @@ resource "aws_security_group_rule" "redis_ingress" {
   cidr_blocks       = [var.cidr_subnet_private_1, var.cidr_subnet_private_2]
 }
 
-resource "aws_security_group_rule" "redis_egress" {
+resource "aws_security_group_rule" "redis-egress" {
   security_group_id = aws_security_group.redis.id
   type              = "egress"
   from_port         = 6379
@@ -501,6 +501,43 @@ resource "aws_instance" "ssh-jump" {
   }
   tags = {
     Name = "${local.friendly_name_prefix}-ssh-jump"
+  }
+}
+
+resource "random_string" "pgsql-password" {
+  length  = 128
+  special = false
+}
+
+resource "aws_db_subnet_group" "tfe" {
+  name       = "${local.friendly_name_prefix}-db-subnet"
+  subnet_ids = [aws_subnet.subnet_private1.id, aws_subnet.subnet_private2.id]
+  tags = {
+    Name = "${local.friendly_name_prefix}-db-subnet"
+  }
+}
+
+resource "aws_db_instance" "tfe" {
+  allocated_storage           = 20
+  max_allocated_storage       = 100
+  engine                      = "postgres"
+  engine_version              = "12.7"
+  db_name                     = "mydbtfe"
+  username                    = "postgres"
+  password                    = random_string.pgsql-password.result
+  instance_class              = var.db_instance_type
+  db_subnet_group_name        = aws_db_subnet_group.tfe.name
+  vpc_security_group_ids      = [aws_security_group.internal-sg.id]
+  skip_final_snapshot         = true
+  allow_major_version_upgrade = false
+  apply_immediately           = true
+  auto_minor_version_upgrade  = true
+  deletion_protection         = false
+  publicly_accessible         = false
+  storage_type                = "gp2"
+  port                        = 5432
+  tags = {
+    Name = "${local.friendly_name_prefix}-tfe-db"
   }
 }
 
