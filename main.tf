@@ -126,15 +126,15 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-/* resource "aws_eip" "aws13jump" {
+resource "aws_eip" "ssh-jump" {
   vpc      = true
-  instance = aws_instance.aws13jump.id
+  instance = aws_instance.ssh-jump.id
   depends_on = [
     aws_internet_gateway.igw
   ]
-} */
+}
 
-resource "aws_eip" "aws13nat" {
+resource "aws_eip" "aws-nat" {
   vpc = true
   depends_on = [
     aws_internet_gateway.igw
@@ -142,7 +142,7 @@ resource "aws_eip" "aws13nat" {
 }
 
 resource "aws_nat_gateway" "nat" {
-  allocation_id = aws_eip.aws13nat.id
+  allocation_id = aws_eip.aws-nat.id
   subnet_id     = aws_subnet.subnet_public1.id
   depends_on    = [aws_internet_gateway.igw]
   tags = {
@@ -485,5 +485,22 @@ resource "aws_elasticache_replication_group" "redis" {
   multi_az_enabled           = false
   auto_minor_version_upgrade = true
   snapshot_retention_limit   = 0
+}
+
+resource "aws_instance" "ssh-jump" {
+  ami                         = var.jump_ami
+  instance_type               = var.instance_type_jump
+  key_name                    = var.key_name
+  vpc_security_group_ids      = [aws_security_group.public-sg.id]
+  subnet_id                   = aws_subnet.subnet_public1.id
+  associate_public_ip_address = true
+  metadata_options {
+    http_tokens                 = "required"
+    http_endpoint               = "enabled"
+    http_put_response_hop_limit = 2
+  }
+  tags = {
+    Name = "${local.friendly_name_prefix}-ssh-jump"
+  }
 }
 
