@@ -6,7 +6,7 @@ locals {
     BypassPreflightChecks        = false
     DaemonAuthenticationType     = "password"
     DaemonAuthenticationPassword = random_string.password.result
-    ImportSettingsFrom           = "/home/ubuntu/install/settings.json"
+    ImportSettingsFrom           = "/etc/ptfe-settings.json"
     LicenseFileLocation          = "/home/ubuntu/install/license.rli"
     TlsBootstrapHostname         = local.tfe_hostname
     TlsBootstrapCert             = "/home/ubuntu/install/certificate.pem"
@@ -106,23 +106,61 @@ locals {
       value = random_id.user_token.hex
     }
   }
+  tfe_user_data = templatefile(
+    "templates/installtfe.sh.tpl",
+    {
+      replicated_settings = base64encode(jsonencode(local.replicated_config))
+      tfe_settings        = base64encode(jsonencode(local.tfe_config))
+      cert_secret_id      = aws_secretsmanager_secret.tls_certificate.id
+      key_secret_id       = aws_secretsmanager_secret.tls_key.id
+      license_secret_id   = aws_secretsmanager_secret.tfe_license.id
+    }
+  )
 }
 
 provider "aws" {
   region = var.region
 }
 
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-  }
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-  owners = ["099720109477"]
+resource "random_id" "archivist_token" {
+  byte_length = 16
+}
+
+resource "random_id" "cookie_hash" {
+  byte_length = 16
+}
+
+resource "random_id" "enc_password" {
+  byte_length = 16
+}
+
+resource "random_id" "install_id" {
+  byte_length = 16
+}
+
+resource "random_id" "internal_api_token" {
+  byte_length = 16
+}
+
+resource "random_id" "root_secret" {
+  byte_length = 16
+}
+
+resource "random_id" "registry_session_secret_key" {
+  byte_length = 16
+}
+
+resource "random_id" "registry_session_encryption_key" {
+  byte_length = 16
+}
+
+resource "random_id" "user_token" {
+  byte_length = 16
+}
+
+resource "random_string" "password" {
+  length  = 16
+  special = false
 }
 
 data "aws_iam_policy_document" "secretsmanager" {
@@ -179,11 +217,32 @@ resource "aws_iam_instance_profile" "tfe" {
 
 resource "aws_secretsmanager_secret" "tfe_license" {
   description = "The TFE license"
+  name = "${local.friendly_name_prefix}-tfe_license"
 }
 
 resource "aws_secretsmanager_secret_version" "tfe_license" {
   secret_binary = filebase64(var.tfe_license_path)
   secret_id     = aws_secretsmanager_secret.tfe_license.id
+}
+
+resource "aws_secretsmanager_secret" "tls_certificate" {
+  description = "TLS certificate"
+  name = "${local.friendly_name_prefix}-tfe_certificate"
+}
+
+resource "aws_secretsmanager_secret_version" "tls_certificate" {
+  secret_binary = filebase64(var.certificate_path)
+  secret_id     = aws_secretsmanager_secret.tls_certificate.id
+}
+
+resource "aws_secretsmanager_secret" "tls_key" {
+  description = "TLS key"
+  name = "${local.friendly_name_prefix}-tfe_key"
+}
+
+resource "aws_secretsmanager_secret_version" "tls_key" {
+  secret_binary = filebase64(var.key_path)
+  secret_id     = aws_secretsmanager_secret.tls_key.id
 }
 
 resource "aws_iam_role_policy" "tfe_asg_discovery" {
@@ -240,7 +299,7 @@ resource "aws_eip" "ssh_jump" {
   ]
 }
 
-resource "aws_eip" "aws-nat" {
+resource "aws_eip" "aws_nat" {
   vpc = true
   depends_on = [
     aws_internet_gateway.igw
@@ -248,7 +307,7 @@ resource "aws_eip" "aws-nat" {
 }
 
 resource "aws_nat_gateway" "nat" {
-  allocation_id = aws_eip.aws-nat.id
+  allocation_id = aws_eip.aws_nat.id
   subnet_id     = aws_subnet.subnet_public1.id
   depends_on    = [aws_internet_gateway.igw]
   tags = {
@@ -523,7 +582,7 @@ resource "aws_s3_bucket_policy" "tfe_data" {
   policy = data.aws_iam_policy_document.tfe_data.json
 }
 
-resource "random_id" "redis-password" {
+resource "random_id" "redis_password" {
   byte_length = 16
 }
 
@@ -580,7 +639,7 @@ resource "aws_elasticache_replication_group" "redis" {
   description                = "Redis replication group for TFE"
   apply_immediately          = true
   at_rest_encryption_enabled = false
-  auth_token                 = random_id.redis-password.hex
+  auth_token                 = random_id.redis_password.hex
   automatic_failover_enabled = false
   engine                     = "redis"
   engine_version             = "5.0.6"
@@ -649,10 +708,10 @@ resource "aws_db_instance" "tfe" {
 
 resource "aws_launch_configuration" "tfe" {
   name_prefix   = "${local.friendly_name_prefix}-tfe-launch-configuration"
-  image_id      = data.aws_ami.ubuntu.image_id
+  image_id      = var.aws_ami
   instance_type = var.instance_type
 
-  #user_data_base64 = var.user_data_base64
+  user_data_base64 = base64encode(local.tfe_user_data)
 
   iam_instance_profile = aws_iam_instance_profile.tfe.name
   key_name             = var.key_name
@@ -675,45 +734,3 @@ resource "aws_launch_configuration" "tfe" {
     create_before_destroy = true
   }
 }
-
-resource "random_id" "archivist_token" {
-  byte_length = 16
-}
-
-resource "random_id" "cookie_hash" {
-  byte_length = 16
-}
-
-resource "random_id" "enc_password" {
-  byte_length = 16
-}
-
-resource "random_id" "install_id" {
-  byte_length = 16
-}
-
-resource "random_id" "internal_api_token" {
-  byte_length = 16
-}
-
-resource "random_id" "root_secret" {
-  byte_length = 16
-}
-
-resource "random_id" "registry_session_secret_key" {
-  byte_length = 16
-}
-
-resource "random_id" "registry_session_encryption_key" {
-  byte_length = 16
-}
-
-resource "random_id" "user_token" {
-  byte_length = 16
-}
-
-resource "random_string" "password" {
-  length  = 16
-  special = false
-}
-

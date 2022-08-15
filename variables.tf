@@ -72,3 +72,15 @@ variable "postgres_username" {
   type        = string
   description = "Postgres database username"
 }
+variable "aws_ami" {
+  type        = string
+  description = "Ubuntu focal AMI"
+}
+variable "certificate_path" {
+  type        = string
+  description = "TLS certificate path"
+}
+variable "key_path" {
+  type        = string
+  description = "TLS key path"
+}
