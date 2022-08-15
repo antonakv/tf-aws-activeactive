@@ -73,10 +73,10 @@ locals {
       value = "external"
     }
     redis_host = {
-      value = "redishost"
+      value = aws_elasticache_replication_group.redis.primary_endpoint_address
     }
     redis_pass = {
-      value = "redispass"
+      value = random_id.redis_password.hex
     }
     redis_port = {
       value = 6380
