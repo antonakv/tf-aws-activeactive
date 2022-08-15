@@ -9,10 +9,102 @@ locals {
     ImportSettingsFrom           = "/home/ubuntu/install/settings.json"
     LicenseFileLocation          = "/home/ubuntu/install/license.rli"
     TlsBootstrapHostname         = local.tfe_hostname
-    TlsBootstrapCert             = "/var/lib/terraform-enterprise/certificate.pem"
-    TlsBootstrapKey              = "/var/lib/terraform-enterprise/key.pem"
+    TlsBootstrapCert             = "/home/ubuntu/install/certificate.pem"
+    TlsBootstrapKey              = "/home/ubuntu/install/key.pem"
     TlsBootstrapType             = "server-path"
     ReleaseSequence              = var.release_sequence
+  }
+  tfe_config = {
+    archivist_token = {
+      value = random_id.archivist_token.hex
+    }
+    aws_instance_profile = {
+      value = 1
+    }
+    cookie_hash = {
+      value = random_id.cookie_hash.hex
+    }
+    enable_active_active = {
+      value = 1
+    }
+    enc_password = {
+      value = random_id.enc_password.hex
+    }
+    extra_no_proxy = {
+      value = concat([
+        "127.0.0.1",
+        "169.254.169.254",
+        "secretsmanager.${var.region}.amazonaws.com",
+        local.tfe_hostname,
+        var.cidr_vpc
+      ])
+    }
+    hostname = {
+      value = local.tfe_hostname
+    }
+    iact_subnet_list = {
+      value = "0.0.0.0/0"
+    }
+    iact_subnet_time_limit = {
+      value = 60
+    }
+    install_id = {
+      value = random_id.install_id.hex
+    }
+    internal_api_token = {
+      value = random_id.internal_api_token.hex
+    }
+    pg_dbname = {
+      value = var.postgres_db_name
+    }
+    pg_netloc = {
+      value = aws_db_instance.tfe.endpoint
+    }
+    pg_password = {
+      value = random_string.pgsql_password.result
+    }
+    pg_user = {
+      value = var.postgres_username
+    }
+    placement = {
+      value = "placement_s3"
+    }
+    production_type = {
+      value = "external"
+    }
+    redis_host = {
+      value = "redishost"
+    }
+    redis_pass = {
+      value = "redispass"
+    }
+    redis_port = {
+      value = 6380
+    }
+    redis_use_password_auth = {
+      value = 1
+    }
+    redis_use_tls = {
+      value = 1
+    }
+    registry_session_encryption_key = {
+      value = random_id.registry_session_encryption_key.hex
+    }
+    registry_session_secret_key = {
+      value = random_id.registry_session_secret_key.hex
+    }
+    root_secret = {
+      value = random_id.root_secret.hex
+    }
+    s3_bucket = {
+      value = aws_s3_bucket.tfe_data.id
+    }
+    s3_region = {
+      value = var.region
+    }
+    user_token = {
+      value = random_id.user_token.hex
+    }
   }
 }
 
@@ -535,9 +627,9 @@ resource "aws_db_instance" "tfe" {
   allocated_storage           = 20
   max_allocated_storage       = 100
   engine                      = "postgres"
-  engine_version              = "12.7"
-  db_name                     = "mydbtfe"
-  username                    = "postgres"
+  engine_version              = var.postgres_engine_version
+  db_name                     = var.postgres_db_name
+  username                    = var.postgres_username
   password                    = random_string.pgsql_password.result
   instance_class              = var.db_instance_type
   db_subnet_group_name        = aws_db_subnet_group.tfe.name

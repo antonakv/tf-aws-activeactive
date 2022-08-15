@@ -60,3 +60,15 @@ variable "release_sequence" {
   type        = number
   description = "Terraform Enterprise release sequence number"
 }
+variable "postgres_db_name" {
+  type        = string
+  description = "Postgres database DB name"
+}
+variable "postgres_engine_version" {
+  type        = string
+  description = "Postgres engine version"
+}
+variable "postgres_username" {
+  type        = string
+  description = "Postgres database username"
+}
