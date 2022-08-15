@@ -1,5 +1,19 @@
 locals {
   friendly_name_prefix = "aakulov-${random_string.friendly_name.id}"
+  tfe_hostname         = "${local.friendly_name_prefix}${var.tfe_hostname}"
+  tfe_jump_hostname    = "${local.friendly_name_prefix}${var.tfe_hostname_jump}"
+  replicated_config = {
+    BypassPreflightChecks        = false
+    DaemonAuthenticationType     = "password"
+    DaemonAuthenticationPassword = random_string.password.result
+    ImportSettingsFrom           = "/home/ubuntu/install/settings.json"
+    LicenseFileLocation          = "/home/ubuntu/install/license.rli"
+    TlsBootstrapHostname         = local.tfe_hostname
+    TlsBootstrapCert             = "/var/lib/terraform-enterprise/certificate.pem"
+    TlsBootstrapKey              = "/var/lib/terraform-enterprise/key.pem"
+    TlsBootstrapType             = "server-path"
+    ReleaseSequence              = var.release_sequence
+  }
 }
 
 provider "aws" {
@@ -126,9 +140,9 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-resource "aws_eip" "ssh-jump" {
+resource "aws_eip" "ssh_jump" {
   vpc      = true
-  instance = aws_instance.ssh-jump.id
+  instance = aws_instance.ssh_jump.id
   depends_on = [
     aws_internet_gateway.igw
   ]
@@ -188,7 +202,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_security_group" "lb-sg" {
+resource "aws_security_group" "lb_sg" {
   vpc_id = aws_vpc.vpc.id
   name   = "${local.friendly_name_prefix}-lb-sg"
   tags = {
@@ -210,7 +224,7 @@ resource "aws_security_group" "lb-sg" {
   }
 }
 
-resource "aws_security_group" "internal-sg" {
+resource "aws_security_group" "internal_sg" {
   vpc_id = aws_vpc.vpc.id
   name   = "${local.friendly_name_prefix}-internal-sg"
   tags = {
@@ -242,7 +256,7 @@ resource "aws_security_group" "internal-sg" {
     from_port       = 443
     to_port         = 443
     protocol        = "tcp"
-    security_groups = [aws_security_group.lb-sg.id]
+    security_groups = [aws_security_group.lb_sg.id]
   }
 
   ingress {
@@ -256,7 +270,7 @@ resource "aws_security_group" "internal-sg" {
     from_port       = 8800
     to_port         = 8800
     protocol        = "tcp"
-    security_groups = [aws_security_group.lb-sg.id]
+    security_groups = [aws_security_group.lb_sg.id]
   }
 
   ingress {
@@ -291,7 +305,7 @@ resource "aws_security_group" "internal-sg" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.public-sg.id]
+    security_groups = [aws_security_group.public_sg.id]
   }
 
   egress {
@@ -302,7 +316,7 @@ resource "aws_security_group" "internal-sg" {
   }
 }
 
-resource "aws_security_group" "public-sg" {
+resource "aws_security_group" "public_sg" {
   vpc_id = aws_vpc.vpc.id
   name   = "${local.friendly_name_prefix}-public-sg"
   tags = {
@@ -350,30 +364,30 @@ resource "aws_vpc_endpoint" "s3" {
   service_name = "com.amazonaws.eu-central-1.s3"
 }
 
-resource "aws_vpc_endpoint_route_table_association" "private-s3-endpoint" {
+resource "aws_vpc_endpoint_route_table_association" "private_s3_endpoint" {
   route_table_id  = aws_route_table.public.id
   vpc_endpoint_id = aws_vpc_endpoint.s3.id
 }
 
-resource "aws_s3_bucket" "tfe-data" {
+resource "aws_s3_bucket" "tfe_data" {
   bucket        = "${local.friendly_name_prefix}-tfe-data"
   force_destroy = true
 }
 
-resource "aws_s3_bucket_versioning" "tfe-data" {
-  bucket = aws_s3_bucket.tfe-data.id
+resource "aws_s3_bucket_versioning" "tfe_data" {
+  bucket = aws_s3_bucket.tfe_data.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_acl" "tfe-data" {
-  bucket = aws_s3_bucket.tfe-data.id
+resource "aws_s3_bucket_acl" "tfe_data" {
+  bucket = aws_s3_bucket.tfe_data.id
   acl    = "private"
 }
 
-resource "aws_s3_bucket_public_access_block" "tfe-data" {
-  bucket = aws_s3_bucket.tfe-data.id
+resource "aws_s3_bucket_public_access_block" "tfe_data" {
+  bucket = aws_s3_bucket.tfe_data.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -381,7 +395,7 @@ resource "aws_s3_bucket_public_access_block" "tfe-data" {
   ignore_public_acls      = true
 }
 
-data "aws_iam_policy_document" "tfe-data" {
+data "aws_iam_policy_document" "tfe_data" {
   statement {
     actions = [
       "s3:GetBucketLocation",
@@ -392,7 +406,7 @@ data "aws_iam_policy_document" "tfe-data" {
       identifiers = [aws_iam_role.instance_role.arn]
       type        = "AWS"
     }
-    resources = [aws_s3_bucket.tfe-data.arn]
+    resources = [aws_s3_bucket.tfe_data.arn]
     sid       = "AllowS3ListBucketData"
   }
 
@@ -407,14 +421,14 @@ data "aws_iam_policy_document" "tfe-data" {
       identifiers = [aws_iam_role.instance_role.arn]
       type        = "AWS"
     }
-    resources = ["${aws_s3_bucket.tfe-data.arn}/*"]
+    resources = ["${aws_s3_bucket.tfe_data.arn}/*"]
     sid       = "AllowS3ManagementData"
   }
 }
 
-resource "aws_s3_bucket_policy" "tfe-data" {
-  bucket = aws_s3_bucket_public_access_block.tfe-data.bucket
-  policy = data.aws_iam_policy_document.tfe-data.json
+resource "aws_s3_bucket_policy" "tfe_data" {
+  bucket = aws_s3_bucket_public_access_block.tfe_data.bucket
+  policy = data.aws_iam_policy_document.tfe_data.json
 }
 
 resource "random_id" "redis-password" {
@@ -426,25 +440,25 @@ resource "aws_security_group" "redis" {
   vpc_id = aws_vpc.vpc.id
 }
 
-resource "aws_security_group_rule" "redis-tfe-ingress" {
+resource "aws_security_group_rule" "redis_tfe_ingress" {
   security_group_id        = aws_security_group.redis.id
   type                     = "ingress"
   from_port                = 6379
   to_port                  = 6380
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.internal-sg.id
+  source_security_group_id = aws_security_group.internal_sg.id
 }
 
-resource "aws_security_group_rule" "redis-tfe-egress" {
+resource "aws_security_group_rule" "redis_tfe_egress" {
   security_group_id        = aws_security_group.redis.id
   type                     = "egress"
   from_port                = 0
   to_port                  = 0
   protocol                 = "-1"
-  source_security_group_id = aws_security_group.internal-sg.id
+  source_security_group_id = aws_security_group.internal_sg.id
 }
 
-resource "aws_security_group_rule" "redis-ingress" {
+resource "aws_security_group_rule" "redis_ingress" {
   security_group_id = aws_security_group.redis.id
   type              = "ingress"
   from_port         = 6379
@@ -453,7 +467,7 @@ resource "aws_security_group_rule" "redis-ingress" {
   cidr_blocks       = [var.cidr_subnet_private_1, var.cidr_subnet_private_2]
 }
 
-resource "aws_security_group_rule" "redis-egress" {
+resource "aws_security_group_rule" "redis_egress" {
   security_group_id = aws_security_group.redis.id
   type              = "egress"
   from_port         = 6379
@@ -487,11 +501,11 @@ resource "aws_elasticache_replication_group" "redis" {
   snapshot_retention_limit   = 0
 }
 
-resource "aws_instance" "ssh-jump" {
+resource "aws_instance" "ssh_jump" {
   ami                         = var.jump_ami
   instance_type               = var.instance_type_jump
   key_name                    = var.key_name
-  vpc_security_group_ids      = [aws_security_group.public-sg.id]
+  vpc_security_group_ids      = [aws_security_group.public_sg.id]
   subnet_id                   = aws_subnet.subnet_public1.id
   associate_public_ip_address = true
   metadata_options {
@@ -504,7 +518,7 @@ resource "aws_instance" "ssh-jump" {
   }
 }
 
-resource "random_string" "pgsql-password" {
+resource "random_string" "pgsql_password" {
   length  = 128
   special = false
 }
@@ -524,10 +538,10 @@ resource "aws_db_instance" "tfe" {
   engine_version              = "12.7"
   db_name                     = "mydbtfe"
   username                    = "postgres"
-  password                    = random_string.pgsql-password.result
+  password                    = random_string.pgsql_password.result
   instance_class              = var.db_instance_type
   db_subnet_group_name        = aws_db_subnet_group.tfe.name
-  vpc_security_group_ids      = [aws_security_group.internal-sg.id]
+  vpc_security_group_ids      = [aws_security_group.internal_sg.id]
   skip_final_snapshot         = true
   allow_major_version_upgrade = false
   apply_immediately           = true
@@ -539,5 +553,75 @@ resource "aws_db_instance" "tfe" {
   tags = {
     Name = "${local.friendly_name_prefix}-tfe-db"
   }
+}
+
+resource "aws_launch_configuration" "tfe" {
+  name_prefix   = "${local.friendly_name_prefix}-tfe-launch-configuration"
+  image_id      = data.aws_ami.ubuntu.image_id
+  instance_type = var.instance_type
+
+  #user_data_base64 = var.user_data_base64
+
+  iam_instance_profile = aws_iam_instance_profile.tfe.name
+  key_name             = var.key_name
+  security_groups      = [aws_security_group.internal_sg.id]
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_put_response_hop_limit = 2
+    http_tokens                 = "optional"
+  }
+
+  root_block_device {
+    encrypted             = true
+    volume_type           = "gp2"
+    volume_size           = 60
+    delete_on_termination = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "random_id" "archivist_token" {
+  byte_length = 16
+}
+
+resource "random_id" "cookie_hash" {
+  byte_length = 16
+}
+
+resource "random_id" "enc_password" {
+  byte_length = 16
+}
+
+resource "random_id" "install_id" {
+  byte_length = 16
+}
+
+resource "random_id" "internal_api_token" {
+  byte_length = 16
+}
+
+resource "random_id" "root_secret" {
+  byte_length = 16
+}
+
+resource "random_id" "registry_session_secret_key" {
+  byte_length = 16
+}
+
+resource "random_id" "registry_session_encryption_key" {
+  byte_length = 16
+}
+
+resource "random_id" "user_token" {
+  byte_length = 16
+}
+
+resource "random_string" "password" {
+  length  = 16
+  special = false
 }
 

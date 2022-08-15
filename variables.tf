@@ -41,3 +41,22 @@ variable "key_name" {
 variable "db_instance_type" {
   description = "Amazon EC2 RDS instance type"
 }
+variable "instance_type" {
+  description = "Amazon EC2 instance type"
+}
+variable "tfe_hostname" {
+  type        = string
+  description = "Terraform Enterprise hostname"
+}
+variable "tfe_hostname_jump" {
+  type        = string
+  description = "Terraform Enterprise jump hostname"
+}
+variable "domain_name" {
+  type        = string
+  description = "Domain name"
+}
+variable "release_sequence" {
+  type        = number
+  description = "Terraform Enterprise release sequence number"
+}
