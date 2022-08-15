@@ -15,9 +15,9 @@ mkdir -p /home/ubuntu/install
 
 echo "$(date +"%T_%F") Create TFE and replicated setting files" | tee -a $logpath
 
-sudo echo "${tfe_settings}" > /etc/ptfe-settings.json
+sudo echo "${tfe_settings}" | base64 --decode > /etc/ptfe-settings.json
 
-sudo echo "${replicated_settings}" > /etc/replicated.conf
+sudo echo "${replicated_settings}" | base64 --decode > /etc/replicated.conf
 
 echo "$(date +"%T_%F") Extract certificate, key, license from AWS Secretsmanager" | tee -a $logpath
 
