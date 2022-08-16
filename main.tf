@@ -114,6 +114,7 @@ locals {
       cert_secret_id      = aws_secretsmanager_secret.tls_certificate.id
       key_secret_id       = aws_secretsmanager_secret.tls_key.id
       license_secret_id   = aws_secretsmanager_secret.tfe_license.id
+      region              = var.region
     }
   )
 }

@@ -5,7 +5,7 @@ set -euo pipefail
 
 function get_secret {
     local secret_id=$1
-    /usr/bin/env aws secretsmanager get-secret-value --secret-id $secret_id --region $region | jq --raw-output '.SecretBinary,.SecretString | select(. != null)'
+    /usr/bin/env aws secretsmanager get-secret-value --secret-id $secret_id --region ${region} | jq --raw-output '.SecretBinary,.SecretString | select(. != null)'
 }
 
 logpath="/home/ubuntu/install/tfeinstall.log" 
