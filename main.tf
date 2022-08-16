@@ -808,7 +808,15 @@ resource "aws_lb_listener" "lb_443" {
 resource "cloudflare_record" "tfe" {
   zone_id = var.cloudflare_zone_id
   name    = local.tfe_hostname
+  type    = "CNAME"
+  ttl     = 1
+  value = aws_lb.tfe_lb.dns_name
+}
+
+resource "cloudflare_record" "tfe_jump" {
+  zone_id = var.cloudflare_zone_id
+  name    = local.tfe_hostname
   type    = "A"
   ttl     = 1
-  
+  value = aws_eip.ssh_jump.public_ip
 }
