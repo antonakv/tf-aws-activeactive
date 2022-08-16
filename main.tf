@@ -808,7 +808,7 @@ resource "aws_lb_listener" "lb_443" {
 resource "cloudflare_record" "tfe" {
   zone_id = var.cloudflare_zone_id
   name    = local.tfe_hostname
-  type    = "A"
+  type    = "CNAME"
   ttl     = 1
   value = aws_lb.tfe_lb.dns_name
 }
