@@ -736,7 +736,7 @@ resource "aws_autoscaling_group" "tfe" {
   desired_capacity          = var.asg_desired_nodes
   vpc_zone_identifier       = [aws_subnet.subnet_private1.id, aws_subnet.subnet_private2.id]
   target_group_arns         = [aws_lb_target_group.tfe_443.arn]
-  health_check_grace_period = 900
+  health_check_grace_period = 1300
   health_check_type         = "ELB"
   launch_configuration      = aws_launch_configuration.tfe.name
   tag {
