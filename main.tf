@@ -118,8 +118,24 @@ locals {
   )
 }
 
+data "local_sensitive_file" "sslcert" {
+  filename = var.ssl_cert_path
+}
+
+data "local_sensitive_file" "sslkey" {
+  filename = var.ssl_key_path
+}
+
+data "local_sensitive_file" "sslchain" {
+  filename = var.ssl_chain_path
+}
+
 provider "aws" {
   region = var.region
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
 
 resource "random_id" "archivist_token" {
@@ -217,7 +233,7 @@ resource "aws_iam_instance_profile" "tfe" {
 
 resource "aws_secretsmanager_secret" "tfe_license" {
   description = "The TFE license"
-  name = "${local.friendly_name_prefix}-tfe_license"
+  name        = "${local.friendly_name_prefix}-tfe_license"
 }
 
 resource "aws_secretsmanager_secret_version" "tfe_license" {
@@ -227,21 +243,21 @@ resource "aws_secretsmanager_secret_version" "tfe_license" {
 
 resource "aws_secretsmanager_secret" "tls_certificate" {
   description = "TLS certificate"
-  name = "${local.friendly_name_prefix}-tfe_certificate"
+  name        = "${local.friendly_name_prefix}-tfe_certificate"
 }
 
 resource "aws_secretsmanager_secret_version" "tls_certificate" {
-  secret_binary = filebase64(var.certificate_path)
+  secret_binary = filebase64(var.ssl_fullchain_cert_path)
   secret_id     = aws_secretsmanager_secret.tls_certificate.id
 }
 
 resource "aws_secretsmanager_secret" "tls_key" {
   description = "TLS key"
-  name = "${local.friendly_name_prefix}-tfe_key"
+  name        = "${local.friendly_name_prefix}-tfe_key"
 }
 
 resource "aws_secretsmanager_secret_version" "tls_key" {
-  secret_binary = filebase64(var.key_path)
+  secret_binary = filebase64(var.ssl_key_path)
   secret_id     = aws_secretsmanager_secret.tls_key.id
 }
 
@@ -724,7 +740,6 @@ resource "aws_launch_configuration" "tfe" {
   }
 
   root_block_device {
-    encrypted             = true
     volume_type           = "gp2"
     volume_size           = 60
     delete_on_termination = true
@@ -733,4 +748,67 @@ resource "aws_launch_configuration" "tfe" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+resource "aws_autoscaling_group" "tfe" {
+  name                      = "${local.friendly_name_prefix}-tfe-asg"
+  min_size                  = var.asg_min_nodes
+  max_size                  = var.asg_max_nodes
+  desired_capacity          = var.asg_desired_nodes
+  vpc_zone_identifier       = [aws_subnet.subnet_private1.id, aws_subnet.subnet_private2.id]
+  target_group_arns         = [aws_lb_target_group.tfe_443.arn]
+  health_check_grace_period = 900
+  health_check_type         = "ELB"
+  launch_configuration      = aws_launch_configuration.tfe.name
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_lb" "tfe_lb" {
+  name               = "${local.friendly_name_prefix}-tfe-app-lb"
+  load_balancer_type = "application"
+  subnets            = [aws_subnet.subnet_public1.id, aws_subnet.subnet_public2.id]
+  security_groups    = [aws_security_group.lb_sg.id]
+}
+
+resource "aws_lb_target_group" "tfe_443" {
+  name     = "${local.friendly_name_prefix}-tfe-tg-443"
+  port     = 443
+  protocol = "HTTPS"
+  vpc_id   = aws_vpc.vpc.id
+  health_check {
+    path     = "/_health_check"
+    protocol = "HTTPS"
+    matcher  = "200-399"
+  }
+}
+
+resource "aws_acm_certificate" "tfe" {
+  private_key       = data.local_sensitive_file.sslkey.content
+  certificate_body  = data.local_sensitive_file.sslcert.content
+  certificate_chain = data.local_sensitive_file.sslchain.content
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_lb_listener" "lb_443" {
+  load_balancer_arn = aws_lb.tfe_lb.arn
+  port = 443
+  protocol = "HTTPS"
+  ssl_policy = var.lb_ssl_policy
+  certificate_arn = aws_acm_certificate.tfe.arn
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.tfe_443.arn
+  }
+}
+
+resource "cloudflare_record" "tfe" {
+  zone_id = var.cloudflare_zone_id
+  name    = local.tfe_hostname
+  type    = "A"
+  ttl     = 1
+  
 }
