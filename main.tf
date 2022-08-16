@@ -427,20 +427,6 @@ resource "aws_security_group" "internal_sg" {
   }
 
   ingress {
-    from_port   = 8800
-    to_port     = 8800
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port       = 8800
-    to_port         = 8800
-    protocol        = "tcp"
-    security_groups = [aws_security_group.lb_sg.id]
-  }
-
-  ingress {
     from_port = 5432
     to_port   = 5432
     protocol  = "tcp"
@@ -450,13 +436,6 @@ resource "aws_security_group" "internal_sg" {
   ingress {
     from_port = 9000
     to_port   = 9000
-    protocol  = "tcp"
-    self      = true
-  }
-
-  ingress {
-    from_port = 8800
-    to_port   = 8800
     protocol  = "tcp"
     self      = true
   }
@@ -760,6 +739,11 @@ resource "aws_autoscaling_group" "tfe" {
   health_check_grace_period = 900
   health_check_type         = "ELB"
   launch_configuration      = aws_launch_configuration.tfe.name
+  tag {
+    key                 = "Name"
+    value               = "${local.friendly_name_prefix}-asg-tfe"
+    propagate_at_launch = true
+  }
   lifecycle {
     create_before_destroy = true
   }
