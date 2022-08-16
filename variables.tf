@@ -76,11 +76,52 @@ variable "aws_ami" {
   type        = string
   description = "Ubuntu focal AMI"
 }
-variable "certificate_path" {
-  type        = string
-  description = "TLS certificate path"
+variable "asg_min_nodes" {
+  type        = number
+  description = "Minimal number of nodes in Autoscaling group"
+  validation {
+    condition     = var.asg_min_nodes >= 2
+    error_message = "Minimal number of nodes for ActiveActive is >= 2"
+  }
 }
-variable "key_path" {
+variable "asg_max_nodes" {
+  type        = number
+  default     = 2
+  description = "Maximal number of nodes in Autoscaling group"
+}
+variable "asg_desired_nodes" {
+  type        = number
+  description = "Desired number of nodes in Autoscaling group"
+  validation {
+    condition     = var.asg_desired_nodes <= 3
+    error_message = "Maximal number of active nodes for ActiveActive is 3"
+  }
+}
+variable "cloudflare_zone_id" {
   type        = string
-  description = "TLS key path"
+  description = "Cloudflare DNS zone id"
+}
+variable "cloudflare_api_token" {
+  type        = string
+  description = "Cloudflare DNS API token"
+}
+variable "ssl_cert_path" {
+  type        = string
+  description = "SSL certificate file path"
+}
+variable "ssl_fullchain_cert_path" {
+  type        = string
+  description = "SSL fullchain cert file path"
+}
+variable "ssl_key_path" {
+  type        = string
+  description = "SSL key file path"
+}
+variable "ssl_chain_path" {
+  type        = string
+  description = "SSL chain file path"
+}
+variable "lb_ssl_policy" {
+  type        = string
+  description = "SSL policy for load balancer"
 }
