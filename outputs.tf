@@ -1,5 +1,5 @@
 output "aws_jump" {
-  value = cloudflare_record.tfe_jump.name
+  value       = cloudflare_record.tfe_jump.name
   description = "SSH jump host"
 }
 output "url" {
@@ -7,6 +7,6 @@ output "url" {
   description = "Login URL and token"
 }
 output "ssh_key_name" {
-  value = var.key_name
+  value       = var.key_name
   description = "SSH key name"
 }
