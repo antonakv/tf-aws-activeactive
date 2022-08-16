@@ -815,7 +815,7 @@ resource "cloudflare_record" "tfe" {
 
 resource "cloudflare_record" "tfe_jump" {
   zone_id = var.cloudflare_zone_id
-  name    = local.tfe_hostname_jump
+  name    = local.tfe_jump_hostname
   type    = "A"
   ttl     = 1
   value   = aws_eip.ssh_jump.public_ip
