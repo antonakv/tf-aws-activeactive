@@ -795,12 +795,12 @@ resource "aws_acm_certificate" "tfe" {
 
 resource "aws_lb_listener" "lb_443" {
   load_balancer_arn = aws_lb.tfe_lb.arn
-  port = 443
-  protocol = "HTTPS"
-  ssl_policy = var.lb_ssl_policy
-  certificate_arn = aws_acm_certificate.tfe.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = var.lb_ssl_policy
+  certificate_arn   = aws_acm_certificate.tfe.arn
   default_action {
-    type = "forward"
+    type             = "forward"
     target_group_arn = aws_lb_target_group.tfe_443.arn
   }
 }
@@ -810,13 +810,13 @@ resource "cloudflare_record" "tfe" {
   name    = local.tfe_hostname
   type    = "CNAME"
   ttl     = 1
-  value = aws_lb.tfe_lb.dns_name
+  value   = aws_lb.tfe_lb.dns_name
 }
 
 resource "cloudflare_record" "tfe_jump" {
   zone_id = var.cloudflare_zone_id
-  name    = local.tfe_hostname
+  name    = local.tfe_hostname_jump
   type    = "A"
   ttl     = 1
-  value = aws_eip.ssh_jump.public_ip
+  value   = aws_eip.ssh_jump.public_ip
 }
