@@ -131,6 +131,14 @@ data "local_sensitive_file" "sslchain" {
   filename = var.ssl_chain_path
 }
 
+data "aws_instances" "tfe" {
+  filter {
+    name   = "instance.group-id"
+    values = [aws_security_group.internal_sg.id]
+  }
+  instance_state_names = ["running"]
+}
+
 provider "aws" {
   region = var.region
 }
