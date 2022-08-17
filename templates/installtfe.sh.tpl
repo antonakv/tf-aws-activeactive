@@ -57,6 +57,8 @@ ipaddr=$(hostname -I | awk '{print $1}')
 
 echo "$(date +"%T_%F") Installing TFE online" | tee -a $logpath
 
+sudo chown -R ubuntu: /home/ubuntu
+
 /etc/replicated/install.sh \
     fast-timeouts \
     bypass-firewalld-warning \

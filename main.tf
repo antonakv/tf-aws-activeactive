@@ -184,9 +184,15 @@ data "aws_iam_policy_document" "secretsmanager" {
   statement {
     actions   = ["secretsmanager:GetSecretValue"]
     effect    = "Allow"
-    resources = [aws_secretsmanager_secret_version.tfe_license.secret_id]
+    resources = [aws_secretsmanager_secret_version.tfe_license.secret_id, aws_secretsmanager_secret_version.tls_certificate.secret_id, aws_secretsmanager_secret_version.tls_key.secret_id]
     sid       = "AllowSecretsManagerSecretAccess"
   }
+}
+
+resource "aws_iam_role_policy" "secretsmanager" {
+  policy = data.aws_iam_policy_document.secretsmanager.json
+  role   = aws_iam_role.instance_role.id
+  name   = "${local.friendly_name_prefix}-tfe-secretsmanager"
 }
 
 data "aws_iam_policy_document" "tfe_asg_discovery" {
@@ -360,13 +366,23 @@ resource "aws_route_table" "public" {
   }
 }
 
-resource "aws_route_table_association" "private" {
+resource "aws_route_table_association" "private1" {
   subnet_id      = aws_subnet.subnet_private1.id
   route_table_id = aws_route_table.private.id
 }
 
-resource "aws_route_table_association" "public" {
+resource "aws_route_table_association" "public1" {
   subnet_id      = aws_subnet.subnet_public1.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private2" {
+  subnet_id      = aws_subnet.subnet_private2.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "public2" {
+  subnet_id      = aws_subnet.subnet_public2.id
   route_table_id = aws_route_table.public.id
 }
 
