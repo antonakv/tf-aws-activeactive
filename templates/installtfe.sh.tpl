@@ -11,13 +11,19 @@ function get_secret {
 logpath="/home/ubuntu/install/tfeinstall.log" 
 replicated_url="https://s3.amazonaws.com/replicated-airgap-work/replicated.tar.gz"
 
+mkdir -p /var/lib/tfe
+
 mkdir -p /home/ubuntu/install
 
 echo "$(date +"%T_%F") Create TFE and replicated setting files" | tee -a $logpath
 
-sudo echo "${tfe_settings}" | base64 --decode > /etc/ptfe-settings.json
+sudo echo "${tfe_settings}" | sudo base64 --decode > /etc/ptfe-settings.json
 
-sudo echo "${replicated_settings}" | base64 --decode > /etc/replicated.conf
+sudo echo "${replicated_settings}" | sudo base64 --decode > /etc/replicated.conf
+
+echo "$(date +"%T_%F") Create docker config" | tee -a $logpath
+
+sudo echo "${docker_config}" | sudo base64 --decode > /etc/docker/daemon.json
 
 echo "$(date +"%T_%F") Extract certificate, key, license from AWS Secretsmanager" | tee -a $logpath
 
@@ -29,11 +35,11 @@ license_base64=$(get_secret ${license_secret_id})
 
 echo "$(date +"%T_%F") Write certificate, key, license" | tee -a $logpath
 
-echo $cert_base64 | base64 --decode > /home/ubuntu/install/certificate.pem
+echo $cert_base64 | base64 --decode > /var/lib/tfe/certificate.pem
 
-echo $key_base64 | base64 --decode > /home/ubuntu/install/key.pem
+echo $key_base64 | base64 --decode > /var/lib/tfe/key.pem
 
-echo $license_base64 | base64 --decode > /home/ubuntu/install/license.rli
+sudo echo $license_base64 | sudo base64 --decode > /etc/tfe-license.rli
 
 sudo mkdir -p /etc/replicated
 
@@ -47,7 +53,7 @@ tar --directory /etc/replicated --extract --file /etc/replicated/replicated.tar.
 
 echo "$(date +"%T_%F") Downloading TFE online" | tee -a $logpath
 
-curl --noproxy '*' --create-dirs --output /etc/replicated/install.sh https://get.replicated.com/docker/terraformenterprise/active-active
+curl --noproxy '*' --create-dirs --output /etc/replicated/install.sh https://install.terraform.io/ptfe/active-active
 
 chmod +x /etc/replicated/install.sh
 
@@ -57,8 +63,6 @@ ipaddr=$(hostname -I | awk '{print $1}')
 
 echo "$(date +"%T_%F") Installing TFE online" | tee -a $logpath
 
-sudo chown -R ubuntu: /home/ubuntu
-
 /etc/replicated/install.sh \
     fast-timeouts \
     bypass-firewalld-warning \
@@ -67,4 +71,3 @@ sudo chown -R ubuntu: /home/ubuntu
     private-address=$ipaddr \
     public-address=$ipaddr \
     | tee -a $logpath
-

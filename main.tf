@@ -1,43 +1,56 @@
 locals {
-  friendly_name_prefix = "aakulov-${random_string.friendly_name.id}"
-  tfe_hostname         = "${local.friendly_name_prefix}${var.tfe_hostname}"
-  tfe_jump_hostname    = "${local.friendly_name_prefix}${var.tfe_hostname_jump}"
+  friendly_name_prefix = "aakulov${random_string.friendly_name.id}"
+  tfe_hostname         = "${random_string.friendly_name.id}${var.tfe_hostname}"
+  tfe_jump_hostname    = "${random_string.friendly_name.id}${var.tfe_hostname_jump}"
   replicated_config = {
-    BypassPreflightChecks        = false
+    BypassPreflightChecks        = true
     DaemonAuthenticationType     = "password"
     DaemonAuthenticationPassword = random_string.password.result
     ImportSettingsFrom           = "/etc/ptfe-settings.json"
-    LicenseFileLocation          = "/home/ubuntu/install/license.rli"
+    LicenseFileLocation          = "/etc/tfe-license.rli"
     TlsBootstrapHostname         = local.tfe_hostname
-    TlsBootstrapCert             = "/home/ubuntu/install/certificate.pem"
-    TlsBootstrapKey              = "/home/ubuntu/install/key.pem"
+    TlsBootstrapCert             = "/var/lib/tfe/certificate.pem"
+    TlsBootstrapKey              = "/var/lib/tfe/key.pem"
     TlsBootstrapType             = "server-path"
     ReleaseSequence              = var.release_sequence
   }
+  # values on the tfe_config must be string with "" used
   tfe_config = {
     archivist_token = {
       value = random_id.archivist_token.hex
     }
     aws_instance_profile = {
-      value = 1
+      value = "1"
     }
     cookie_hash = {
       value = random_id.cookie_hash.hex
     }
+    capacity_concurrency = {
+      value = "10"
+    }
+    capacity_memory = {
+      value = "512"
+    }
     enable_active_active = {
-      value = 1
+      value = "1"
+    }
+    enable_metrics_collection = {
+      value = "1"
     }
     enc_password = {
       value = random_id.enc_password.hex
     }
     extra_no_proxy = {
-      value = concat([
-        "127.0.0.1",
-        "169.254.169.254",
-        "secretsmanager.${var.region}.amazonaws.com",
-        local.tfe_hostname,
-        var.cidr_vpc
-      ])
+      value = join(",",
+        ["127.0.0.1",
+          "169.254.169.254",
+          "secretsmanager.${var.region}.amazonaws.com",
+          local.tfe_hostname,
+        var.cidr_vpc]
+      )
+    }
+    hairpin_addressing = {
+      value = 0
     }
     hostname = {
       value = local.tfe_hostname
@@ -46,7 +59,7 @@ locals {
       value = "0.0.0.0/0"
     }
     iact_subnet_time_limit = {
-      value = 60
+      value = "60"
     }
     install_id = {
       value = random_id.install_id.hex
@@ -79,13 +92,13 @@ locals {
       value = random_id.redis_password.hex
     }
     redis_port = {
-      value = 6380
+      value = "6380"
     }
     redis_use_password_auth = {
-      value = 1
+      value = "1"
     }
     redis_use_tls = {
-      value = 1
+      value = "1"
     }
     registry_session_encryption_key = {
       value = random_id.registry_session_encryption_key.hex
@@ -115,6 +128,7 @@ locals {
       key_secret_id       = aws_secretsmanager_secret.tls_key.id
       license_secret_id   = aws_secretsmanager_secret.tfe_license.id
       region              = var.region
+      docker_config       = filebase64("files/daemon.json")
     }
   )
 }
