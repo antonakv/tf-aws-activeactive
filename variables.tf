@@ -74,7 +74,7 @@ variable "postgres_username" {
 }
 variable "aws_ami" {
   type        = string
-  description = "Ubuntu focal AMI"
+  description = "Ubuntu focal AMI with preinstalled docker-ce 20.10.7 docker-ce-cli 20.10.7 containerd.io"
 }
 variable "asg_min_nodes" {
   type        = number
