@@ -1,5 +1,5 @@
 locals {
-  friendly_name_prefix = "aakulov${random_string.friendly_name.id}"
+  friendly_name_prefix = "aakulov-${random_string.friendly_name.id}"
   tfe_hostname         = "${random_string.friendly_name.id}${var.tfe_hostname}"
   tfe_jump_hostname    = "${random_string.friendly_name.id}${var.tfe_hostname_jump}"
   replicated_config = {
@@ -50,7 +50,7 @@ locals {
       )
     }
     hairpin_addressing = {
-      value = 0
+      value = "0"
     }
     hostname = {
       value = local.tfe_hostname
@@ -59,7 +59,7 @@ locals {
       value = "0.0.0.0/0"
     }
     iact_subnet_time_limit = {
-      value = "60"
+      value = "unlimited"
     }
     install_id = {
       value = random_id.install_id.hex
@@ -428,6 +428,13 @@ resource "aws_security_group" "lb_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_security_group" "internal_sg" {
@@ -546,11 +553,11 @@ resource "aws_security_group" "public_sg" {
 
 resource "aws_vpc_endpoint" "s3" {
   vpc_id       = aws_vpc.vpc.id
-  service_name = "com.amazonaws.eu-central-1.s3"
+  service_name = "com.amazonaws.${var.region}.s3"
 }
 
 resource "aws_vpc_endpoint_route_table_association" "private_s3_endpoint" {
-  route_table_id  = aws_route_table.public.id
+  route_table_id  = aws_route_table.private.id
   vpc_endpoint_id = aws_vpc_endpoint.s3.id
 }
 
@@ -620,45 +627,28 @@ resource "random_id" "redis_password" {
   byte_length = 16
 }
 
-resource "aws_security_group" "redis" {
-  name   = "${local.friendly_name_prefix}-tfe-redis"
+resource "aws_security_group" "redis_sg" {
+  name   = "${local.friendly_name_prefix}-redis-sg"
   vpc_id = aws_vpc.vpc.id
-}
 
-resource "aws_security_group_rule" "redis_tfe_ingress" {
-  security_group_id        = aws_security_group.redis.id
-  type                     = "ingress"
-  from_port                = 6379
-  to_port                  = 6380
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.internal_sg.id
-}
+  tags = {
+    Name = "${local.friendly_name_prefix}-redis-sg"
+  }
 
-resource "aws_security_group_rule" "redis_tfe_egress" {
-  security_group_id        = aws_security_group.redis.id
-  type                     = "egress"
-  from_port                = 0
-  to_port                  = 0
-  protocol                 = "-1"
-  source_security_group_id = aws_security_group.internal_sg.id
-}
+  ingress {
+    from_port       = 6379
+    to_port         = 6380
+    protocol        = "tcp"
+    security_groups = [aws_security_group.internal_sg.id]
+  }
 
-resource "aws_security_group_rule" "redis_ingress" {
-  security_group_id = aws_security_group.redis.id
-  type              = "ingress"
-  from_port         = 6379
-  to_port           = 6380
-  protocol          = "tcp"
-  cidr_blocks       = [var.cidr_subnet_private_1, var.cidr_subnet_private_2]
-}
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-resource "aws_security_group_rule" "redis_egress" {
-  security_group_id = aws_security_group.redis.id
-  type              = "egress"
-  from_port         = 6379
-  to_port           = 6380
-  protocol          = "tcp"
-  cidr_blocks       = [var.cidr_subnet_private_1, var.cidr_subnet_private_2]
 }
 
 resource "aws_elasticache_subnet_group" "tfe" {
@@ -672,18 +662,19 @@ resource "aws_elasticache_replication_group" "redis" {
   replication_group_id       = "${local.friendly_name_prefix}-tfe"
   description                = "Redis replication group for TFE"
   apply_immediately          = true
-  at_rest_encryption_enabled = false
   auth_token                 = random_id.redis_password.hex
+  transit_encryption_enabled = true
+  at_rest_encryption_enabled = true
   automatic_failover_enabled = false
   engine                     = "redis"
   engine_version             = "5.0.6"
   parameter_group_name       = "default.redis5.0"
-  port                       = 6379
+  port                       = 6380
   subnet_group_name          = aws_elasticache_subnet_group.tfe.name
-  transit_encryption_enabled = true
   multi_az_enabled           = false
   auto_minor_version_upgrade = true
   snapshot_retention_limit   = 0
+  security_group_ids         = [aws_security_group.redis_sg.id]
 }
 
 resource "aws_instance" "ssh_jump" {
@@ -704,7 +695,7 @@ resource "aws_instance" "ssh_jump" {
 }
 
 resource "random_string" "pgsql_password" {
-  length  = 128
+  length  = 24
   special = false
 }
 
@@ -775,7 +766,7 @@ resource "aws_autoscaling_group" "tfe" {
   desired_capacity          = var.asg_desired_nodes
   vpc_zone_identifier       = [aws_subnet.subnet_private1.id, aws_subnet.subnet_private2.id]
   target_group_arns         = [aws_lb_target_group.tfe_443.arn]
-  health_check_grace_period = 1300
+  health_check_grace_period = 5500
   health_check_type         = "ELB"
   launch_configuration      = aws_launch_configuration.tfe.name
   tag {
@@ -801,9 +792,13 @@ resource "aws_lb_target_group" "tfe_443" {
   protocol = "HTTPS"
   vpc_id   = aws_vpc.vpc.id
   health_check {
-    path     = "/_health_check"
-    protocol = "HTTPS"
-    matcher  = "200-399"
+    healthy_threshold   = 6
+    unhealthy_threshold = 2
+    timeout             = 2
+    interval            = 5
+    path                = "/_health_check"
+    protocol            = "HTTPS"
+    matcher             = "200-399"
   }
 }
 
