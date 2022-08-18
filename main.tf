@@ -800,6 +800,10 @@ resource "aws_lb_target_group" "tfe_443" {
     protocol            = "HTTPS"
     matcher             = "200-399"
   }
+  stickiness {
+    enabled = true
+    type    = "lb_cookie"
+  }
 }
 
 resource "aws_acm_certificate" "tfe" {
