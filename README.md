@@ -2058,7 +2058,7 @@ Outputs:
 
 aws_jump_hostname = "xxxxtfeaajump.akulov.cc"
 aws_jump_public_ip = "1.14.6.1"
-aws_lb_target_group_hosts = ""
+aws_lb_active_target_group_hosts = ""
 ssh_key_name = "aakulov"
 url = "https://xxxxtfeaa.akulov.cc/admin/account/new?token=xxxxxxxxxxxxxxxxxxxxxxxx"
 
