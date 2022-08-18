@@ -428,6 +428,13 @@ resource "aws_security_group" "lb_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_security_group" "internal_sg" {
@@ -621,8 +628,12 @@ resource "random_id" "redis_password" {
 }
 
 resource "aws_security_group" "redis_sg" {
-  name   = "${local.friendly_name_prefix}-tfe-redis"
+  name   = "${local.friendly_name_prefix}-redis-sg"
   vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    Name = "${local.friendly_name_prefix}-redis-sg"
+  }
 
   ingress {
     from_port       = 6379
@@ -755,7 +766,7 @@ resource "aws_autoscaling_group" "tfe" {
   desired_capacity          = var.asg_desired_nodes
   vpc_zone_identifier       = [aws_subnet.subnet_private1.id, aws_subnet.subnet_private2.id]
   target_group_arns         = [aws_lb_target_group.tfe_443.arn]
-  health_check_grace_period = 1300
+  health_check_grace_period = 5500
   health_check_type         = "ELB"
   launch_configuration      = aws_launch_configuration.tfe.name
   tag {
@@ -781,9 +792,13 @@ resource "aws_lb_target_group" "tfe_443" {
   protocol = "HTTPS"
   vpc_id   = aws_vpc.vpc.id
   health_check {
-    path     = "/_health_check"
-    protocol = "HTTPS"
-    matcher  = "200-399"
+    healthy_threshold   = 6
+    unhealthy_threshold = 2
+    timeout             = 2
+    interval            = 5
+    path                = "/_health_check"
+    protocol            = "HTTPS"
+    matcher             = "200-399"
   }
 }
 
