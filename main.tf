@@ -50,7 +50,7 @@ locals {
       )
     }
     hairpin_addressing = {
-      value = "0"
+      value = "1"
     }
     hostname = {
       value = local.tfe_hostname
@@ -420,6 +420,7 @@ resource "aws_security_group" "lb_sg" {
     to_port     = 8800
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "allow replicated admin port incoming connection"
   }
 
   ingress {
@@ -427,6 +428,7 @@ resource "aws_security_group" "lb_sg" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "allow https port incoming connection"
   }
 
   egress {
@@ -434,6 +436,7 @@ resource "aws_security_group" "lb_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "allow outgoing connections"
   }
 }
 
@@ -449,6 +452,7 @@ resource "aws_security_group" "internal_sg" {
     to_port     = -1
     protocol    = "icmp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all the icmp types"
   }
 
   ingress {
@@ -456,6 +460,7 @@ resource "aws_security_group" "internal_sg" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow ssh port 22"
   }
 
   ingress {
@@ -463,6 +468,7 @@ resource "aws_security_group" "internal_sg" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "allow https port incoming connection"
   }
 
   ingress {
@@ -470,6 +476,7 @@ resource "aws_security_group" "internal_sg" {
     to_port         = 443
     protocol        = "tcp"
     security_groups = [aws_security_group.lb_sg.id]
+    description = "allow https port incoming connection from Load balancer"
   }
 
   ingress {
@@ -477,20 +484,22 @@ resource "aws_security_group" "internal_sg" {
     to_port   = 5432
     protocol  = "tcp"
     self      = true
+    description = "allow postgres port incoming connections"
   }
 
-  ingress {
+/*   ingress {
     from_port = 9000
     to_port   = 9000
     protocol  = "tcp"
     self      = true
-  }
+  } */
 
   ingress {
     from_port = 443
     to_port   = 443
     protocol  = "tcp"
     self      = true
+    description = "allow https port incoming connection"
   }
 
   ingress {
@@ -498,6 +507,15 @@ resource "aws_security_group" "internal_sg" {
     to_port         = 22
     protocol        = "tcp"
     security_groups = [aws_security_group.public_sg.id]
+    description = "Allow ssh port 22 from public security group"
+  }
+
+  ingress {
+    from_port = 8201
+    to_port   = 8201
+    protocol  = "tcp"
+    self      = true
+    description = "allow Vault HA request forwarding"
   }
 
   egress {
@@ -505,6 +523,7 @@ resource "aws_security_group" "internal_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow outgoing connections"
   }
 }
 
@@ -520,6 +539,7 @@ resource "aws_security_group" "public_sg" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow http port incoming connection"
   }
 
   ingress {
@@ -527,6 +547,7 @@ resource "aws_security_group" "public_sg" {
     to_port     = 8800
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "allow replicated admin port incoming connection"
   }
 
   ingress {
@@ -534,6 +555,7 @@ resource "aws_security_group" "public_sg" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "allow https port incoming connection"
   }
 
   ingress {
@@ -541,6 +563,7 @@ resource "aws_security_group" "public_sg" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow ssh port 22"
   }
 
   egress {
@@ -548,6 +571,7 @@ resource "aws_security_group" "public_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow outgoing connections"
   }
 }
 
