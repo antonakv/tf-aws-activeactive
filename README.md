@@ -26,6 +26,10 @@ This manual is dedicated to install Prod External Services ( Redis + S3 + DB ) a
 - AMI image build with packer 
 [packer-aws-ubuntufocal](https://github.com/antonakv/packer-aws-ubuntufocal-tfe)
 
+## Amazon AWS Resources diagram
+
+ ![Diagram](https://github.com/antonakv/tf-aws-activeactive/raw/main/diagram/diagram.png)
+
 ## Preparation 
 
 - Clone git repository
