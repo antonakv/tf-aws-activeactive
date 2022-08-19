@@ -1,5 +1,6 @@
 {
     "storage-driver": "overlay2",
     "mtu": 1460,
-    "log-driver": "journald"
+    "log-driver": "journald",
+    "log-opt": "tag=[{{.Name}}][{{.ID}}]"
 }
